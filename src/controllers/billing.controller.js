@@ -12,6 +12,7 @@ exports.create = async (req, res) => {
   try {
     const {
       patientId,
+      appointmentId,
       items,
       discount,
       taxPercentage,
@@ -126,12 +127,20 @@ exports.create = async (req, res) => {
     }
 
     // Create billing record
+
     const billingData = {
       patientId: patient._id,
-      patientName: patient.fullName,
+      appointmentId: appointmentId || null,
+      patientName: patient.name,
       patientAge: patient.age,
       patientGender: patient.gender,
       patientPhone: patient.phone,
+
+      // Fields from the Request context
+      franchiseId: req.user.franchiseId,
+      createdBy: req.user._id || req.user.id, // Check both possibilities
+
+      // Rest of fields
       doctorName: doctorName || patient.doctorName,
       referredBy: referredBy || patient.referredBy,
       items: processedItems,
@@ -140,29 +149,42 @@ exports.create = async (req, res) => {
       paymentMode: paymentMode || "Cash",
       paymentDetails: paymentDetails || {},
       amountPaid: amountPaid || 0,
-      franchiseId: req.user.franchiseId,
-      createdBy: req.user._id,
       notes: notes,
+
+      // Placeholders to pass initial validation
+      billNumber: `TEMP-${Date.now()}`,
+      subtotal: 0,
+      totalAmount: 0,
     };
 
     const billing = await Billing.create([billingData], { session });
+    const newBill = billing[0];
+
+    // NEW: If this bill came from an appointment, update the appointment
+    if (appointmentId) {
+      await mongoose.model("Appointment").findByIdAndUpdate(
+        appointmentId,
+        {
+          billingStatus: "Billed",
+          billId: newBill._id,
+        },
+        { session },
+      );
+    }
 
     await session.commitTransaction();
     session.endSession();
 
     return res.status(201).json({
       message: "Bill created successfully",
-      data: billing[0],
-      billNumber: billing[0].billNumber,
+      data: newBill,
     });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-
-    return res.status(500).json({
-      message: "Failed to create bill",
-      error: error.message,
-    });
+    return res
+      .status(500)
+      .json({ message: "Failed to create bill", error: error.message });
   }
 };
 
@@ -210,7 +232,7 @@ exports.getAll = async (req, res) => {
 
     const [bills, total] = await Promise.all([
       Billing.find(filter)
-        .populate("patientId", "patientId fullName phone")
+        .populate("patientId", "patientId name phone")
         .sort({ billingDate: -1 })
         .skip(skip)
         .limit(parseInt(limit)),
@@ -236,10 +258,7 @@ exports.getById = async (req, res) => {
     const bill = await Billing.findOne({
       _id: req.params.id,
       franchiseId: req.user.franchiseId,
-    }).populate(
-      "patientId",
-      "patientId fullName age gender phone email address",
-    );
+    }).populate("patientId", "patientId name age gender phone email address");
 
     if (!bill) {
       return res.status(404).json({
@@ -539,10 +558,7 @@ exports.printBill = async (req, res) => {
       _id: req.params.id,
       franchiseId: req.user.franchiseId,
     })
-      .populate(
-        "patientId",
-        "patientId fullName age gender phone email address",
-      )
+      .populate("patientId", "patientId name age gender phone email address")
       .populate("createdBy", "name");
 
     if (!bill) {

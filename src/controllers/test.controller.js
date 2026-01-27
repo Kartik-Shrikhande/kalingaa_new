@@ -2,10 +2,6 @@ const Test = require("../models/test.model");
 
 exports.create = async (req, res) => {
   try {
-    console.log("Create function called");
-    console.log("Franchise ID:", req.user.franchiseId);
-    console.log("Test model:", Test);
-
     // Check if Test model is properly imported
     if (!Test || typeof Test.create !== "function") {
       throw new Error("Test model not properly imported");
@@ -16,11 +12,7 @@ exports.create = async (req, res) => {
       franchiseId: req.user.franchiseId,
     };
 
-    console.log("Creating test with data:", testData);
-
     const test = await Test.create(testData);
-
-    console.log("Test created successfully:", test._id);
 
     return res.status(201).json({
       message: "Test created successfully",

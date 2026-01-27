@@ -2,6 +2,10 @@ const { body } = require("express-validator");
 
 exports.createBillingValidator = () => [
   body("patientId").isMongoId().withMessage("Valid patient ID required"),
+  body("appointmentId")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid Appointment ID"),
   body("items").isArray({ min: 1 }).withMessage("At least one item required"),
   body("items.*.itemType")
     .isIn(["Test", "Package"])

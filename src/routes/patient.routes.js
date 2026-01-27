@@ -50,6 +50,13 @@ router.put(
   controller.update,
 );
 
+// DELETE PATIENT (FranchiseAdmin only)
+router.delete(
+  "/delete/:id",
+  authorizeRoles(["FranchiseAdmin"]),
+  controller.remove,
+);
+
 // GET PATIENT BILLS
 router.get("/:id/bills", controller.getPatientBills);
 

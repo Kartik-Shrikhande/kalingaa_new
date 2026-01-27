@@ -1,5 +1,3 @@
-// New file
-
 const mongoose = require("mongoose");
 
 const packageSchema = new mongoose.Schema(
@@ -108,23 +106,19 @@ const packageSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Calculate discount percentage
-packageSchema.pre("save", function (next) {
+packageSchema.pre("save", async function () {
   if (this.regularPrice > 0 && this.specialPrice > 0) {
     this.discountPercentage = Math.round(
       ((this.regularPrice - this.specialPrice) / this.regularPrice) * 100,
     );
   }
-  next();
 });
 
-// Generate code before saving
-packageSchema.pre("save", async function (next) {
+packageSchema.pre("save", async function () {
   if (!this.code) {
-    const count = await mongoose.model("Package").countDocuments();
+    const count = await this.constructor.countDocuments();
     this.code = `PKG${String(count + 1).padStart(4, "0")}`;
   }
-  next();
 });
 
 module.exports = mongoose.model("Package", packageSchema);

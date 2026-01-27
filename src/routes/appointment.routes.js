@@ -47,9 +47,9 @@ router.put(
   controller.updateStatus,
 );
 
-// DELETE
-router.delete(
-  "/delete/:id",
+// CANCEL
+router.patch(
+  "/cancel/:id",
   authenticateUser,
   authorizeRoles(["FranchiseAdmin", "SuperAdmin"]),
   controller.remove,

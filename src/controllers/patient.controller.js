@@ -5,11 +5,15 @@ const { generateToken } = require("../utils/jwt");
 
 exports.create = async (req, res) => {
   try {
-    const patient = await Patient.create({
+    const patientData = {
       ...req.body,
+      name: req.body.name,
       email: req.body.email?.toLowerCase(),
       franchiseId: req.user.franchiseId,
-    });
+      createdBy: req.user._id || req.user.id,
+    };
+
+    const patient = await Patient.create(patientData);
 
     return res.status(201).json({
       message: "Patient created successfully",
@@ -52,9 +56,6 @@ exports.getById = async (req, res) => {
 
 exports.search = async (req, res) => {
   try {
-    console.log("Search query params received:", req.query); // Debug log
-    console.log("Search term:", req.query.search); // Debug log
-
     const searchTerm = req.query.search || req.query.q;
 
     if (!searchTerm || searchTerm.trim() === "") {
@@ -63,30 +64,22 @@ exports.search = async (req, res) => {
       });
     }
 
-    // Trim and clean the search term
     const cleanSearchTerm = searchTerm.trim();
-
-    console.log("Cleaned search term:", cleanSearchTerm); // Debug log
-    console.log("User franchise ID:", req.user.franchiseId); // Debug log
 
     const patients = await Patient.find({
       franchiseId: req.user.franchiseId,
       isActive: true,
       $or: [
-        { fullName: { $regex: cleanSearchTerm, $options: "i" } },
         { name: { $regex: cleanSearchTerm, $options: "i" } },
         { phone: { $regex: cleanSearchTerm, $options: "i" } },
         { email: { $regex: cleanSearchTerm, $options: "i" } },
       ],
     });
 
-    console.log("Found patients:", patients.length); // Debug log
-
     return res.status(200).json({
       data: patients,
     });
   } catch (error) {
-    console.error("Search error:", error); // Debug log
     return res.status(500).json({
       message: "Patient search failed",
       error: error.message,
@@ -96,7 +89,6 @@ exports.search = async (req, res) => {
 
 exports.getPatientBills = async (req, res) => {
   try {
-    // Placeholder until Bill model exists
     return res.status(200).json({
       message: "Bills feature not implemented yet",
     });
