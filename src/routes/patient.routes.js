@@ -6,9 +6,11 @@ const { validationResult } = require("express-validator");
 const controller = require("../controllers/patient.controller");
 const validator = require("../validators/patient.validator");
 
+router.post("/login", controller.patientLogin);
+
 router.use(
   authenticateUser,
-  authorizeRoles(["FranchiseAdmin", "FrontOffice", "LabTechnician"]),
+  authorizeRoles(["FranchiseAdmin", "FrontOffice", "LabTechnician","Patient"]),
 );
 
 // CREATE PATIENT (FrontOffice only)
@@ -57,7 +59,10 @@ router.delete(
   controller.remove,
 );
 
-// GET PATIENT BILLS
-router.get("/:id/bills", controller.getPatientBills);
+// GET PATIENT BILLS by id 
+router.get("/bills", controller.getPatientBills);
+
+router.get("/bills/:id", controller.getPatientBillById)
+
 
 module.exports = router;

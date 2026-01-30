@@ -1,26 +1,28 @@
 const { body } = require("express-validator");
 
 exports.createBillingValidator = () => [
-  body("patientId").isMongoId().withMessage("Valid patient ID required"),
+  body("patientId")
+    .isMongoId()
+    .withMessage("Valid patient ID required"),
+
   body("appointmentId")
     .optional()
     .isMongoId()
-    .withMessage("Invalid Appointment ID"),
-  body("items").isArray({ min: 1 }).withMessage("At least one item required"),
-  body("items.*.itemType")
-    .isIn(["Test", "Package"])
-    .withMessage("Invalid item type"),
-  body("items.*.itemId").isMongoId().withMessage("Valid item ID required"),
-  body("items.*.quantity").optional().isInt({ min: 1 }),
-  body("items.*.finalPrice").optional().isNumeric(),
-  body("discount")
+    .withMessage("Invalid appointment ID"),
+
+  body("items")
+    .isArray({ min: 1 })
+    .withMessage("At least one item is required"),
+
+  body("items.*.itemId")
+    .isMongoId()
+    .withMessage("Valid item ID required"),
+
+  body("items.*.quantity")
     .optional()
-    .isNumeric()
-    .withMessage("Discount must be a number"),
-  body("taxPercentage")
-    .optional()
-    .isNumeric()
-    .withMessage("Tax percentage must be a number"),
+    .isInt({ min: 1 })
+    .withMessage("Quantity must be at least 1"),
+
   body("paymentMode")
     .optional()
     .isIn([
@@ -31,21 +33,38 @@ exports.createBillingValidator = () => [
       "Cheque",
       "Insurance",
       "Multiple",
-    ]),
+    ])
+    .withMessage("Invalid payment mode"),
+
   body("amountPaid")
     .optional()
     .isNumeric()
     .withMessage("Amount paid must be a number"),
-  body("doctorName").optional().isString(),
-  body("referredBy").optional().isString(),
-  body("notes").optional().isString(),
+
+  body("doctorName")
+    .optional()
+    .isString()
+    .trim(),
+
+  body("referredBy")
+    .optional()
+    .isString()
+    .trim(),
+
+  body("notes")
+    .optional()
+    .isString()
+    .trim(),
 ];
+
 
 exports.updatePaymentValidator = () => [
   body("amountPaid")
     .optional()
     .isNumeric()
-    .withMessage("Amount paid must be a number"),
+    .custom((v) => v >= 0)
+    .withMessage("Amount paid cannot be negative"),
+
   body("paymentMode")
     .optional()
     .isIn([
@@ -57,9 +76,11 @@ exports.updatePaymentValidator = () => [
       "Insurance",
       "Multiple",
     ]),
+
   body("paymentStatus")
     .optional()
     .isIn(["Pending", "Partial", "Paid", "Cancelled"]),
+
   body("paymentDetails.transactionId").optional().isString(),
   body("paymentDetails.chequeNumber").optional().isString(),
   body("paymentDetails.bankName").optional().isString(),

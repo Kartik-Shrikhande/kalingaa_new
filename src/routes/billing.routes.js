@@ -19,7 +19,7 @@ router.post(
     }
     next();
   },
-  controller.create,
+  controller.createBill,
 );
 
 // GET ALL BILLS

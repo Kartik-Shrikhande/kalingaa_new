@@ -1,6 +1,6 @@
 const Patient = require("../models/patient.model");
 const jwt = require("jsonwebtoken");
-
+const Billing = require("../models/billing.model");
 const { generateToken } = require("../utils/jwt");
 
 exports.create = async (req, res) => {
@@ -87,17 +87,6 @@ exports.search = async (req, res) => {
   }
 };
 
-exports.getPatientBills = async (req, res) => {
-  try {
-    return res.status(200).json({
-      message: "Bills feature not implemented yet",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: "Failed to fetch patient bills",
-    });
-  }
-};
 
 exports.update = async (req, res) => {
   if (req.body.email) {
@@ -181,6 +170,97 @@ exports.patientLogin = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: "Patient login failed",
+    });
+  }
+};
+
+
+
+// GET /api/patient/bills
+
+
+
+
+// GET /api/patient/bills
+exports.getPatientBills = async (req, res) => {
+  try {
+    // Patient ID from JWT token
+    const patientId = req.user.id;
+
+    const { paymentStatus, page = 1, limit = 10, search } = req.query;
+
+    const filter = {
+      patientId,
+      isActive: true,
+    };
+
+    // === Payment status filter ===
+    if (paymentStatus) {
+      const allowedStatuses = ["Pending", "Partial", "Paid", "Cancelled"];
+      if (allowedStatuses.includes(paymentStatus)) {
+        filter.paymentStatus = paymentStatus;
+      }
+    }
+
+    // Optional search by doctorName or referredBy
+    if (search) {
+      filter.$or = [
+        { doctorName: { $regex: search, $options: "i" } },
+        { referredBy: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [bills, total] = await Promise.all([
+      Billing.find(filter)
+        .select(
+          "billingDate totalAmount amountPaid balanceDue paymentStatus doctorName referredBy"
+        )
+        .sort({ billingDate: -1 }) // latest bills first
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Billing.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit)),
+      data: bills,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch bills",
+      error: error.message,
+    });
+  }
+};
+
+
+
+
+// GET /api/patient/bills/:id
+exports.getPatientBillById = async (req, res) => {
+  try {
+    const patientId = req.user.id;
+    const billId = req.params.id;
+
+    const bill = await Billing.findOne({
+      _id: billId,
+      patientId,
+      isActive: true,
+    })
+
+    if (!bill) {
+      return res.status(404).json({ message: "Bill not found" });
+    }
+
+    return res.status(200).json(bill);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch bill",
+      error: error.message,
     });
   }
 };

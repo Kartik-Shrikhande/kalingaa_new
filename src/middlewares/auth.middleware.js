@@ -59,7 +59,8 @@ exports.authenticateUser = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(" ")[1];
-
+console.log("AUTH HEADER:", req.headers.authorization);
+    console.log("JWT SECRET:", process.env.JWT_SECRET);
     if (!token) {
       return res.status(401).json({ message: "Access token required" });
     }
