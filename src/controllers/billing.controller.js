@@ -6,15 +6,30 @@ const Package = require("../models/package.model");
 const mongoose = require("mongoose");
 
 
+
+
 exports.createBill = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { patientId, appointmentId, items, doctorName, referredBy, notes } = req.body;
+    const {
+      patientId,
+      appointmentId,
+      items,
+      doctorName,
+      referredBy,
+      notes,
+      amountPaid = 0,     // ✅ NEW
+      paymentMode = "Cash"
+    } = req.body;
 
-    // 1️⃣ Fetch patient info
-    const patient = await Patient.findOne({ _id: patientId, franchiseId: req.user.franchiseId }).session(session);
+    // 1️⃣ Fetch patient
+    const patient = await Patient.findOne({
+      _id: patientId,
+      franchiseId: req.user.franchiseId
+    }).session(session);
+
     if (!patient) {
       await session.abortTransaction();
       return res.status(404).json({ message: "Patient not found" });
@@ -28,21 +43,33 @@ exports.createBill = async (req, res) => {
       const quantity = item.quantity || 1;
       let itemData, itemType;
 
-      // Check Test
-      itemData = await Test.findOne({ _id: item.itemId, franchiseId: req.user.franchiseId, isActive: true }).session(session);
+      // Test
+      itemData = await Test.findOne({
+        _id: item.itemId,
+        franchiseId: req.user.franchiseId,
+        isActive: true
+      }).session(session);
+
       if (itemData) itemType = "Test";
 
-      // Check Package
+      // Package
       if (!itemData) {
-        itemData = await Package.findOne({ _id: item.itemId, franchiseId: req.user.franchiseId, isActive: true })
+        itemData = await Package.findOne({
+          _id: item.itemId,
+          franchiseId: req.user.franchiseId,
+          isActive: true
+        })
           .populate("includesTests.test", "name code price")
           .session(session);
+
         if (itemData) itemType = "Package";
       }
 
       if (!itemData) {
         await session.abortTransaction();
-        return res.status(400).json({ message: `Invalid itemId: ${item.itemId}` });
+        return res.status(400).json({
+          message: `Invalid itemId: ${item.itemId}`
+        });
       }
 
       if (itemType === "Test") {
@@ -60,18 +87,20 @@ exports.createBill = async (req, res) => {
           discountType: "None",
           discountValue: 0,
           discountAmount: 0,
-          isPackage: false,
+          isPackage: false
         });
-      } else if (itemType === "Package") {
+      }
+
+      if (itemType === "Package") {
         const unitPrice = itemData.specialPrice;
         const finalPrice = unitPrice * quantity;
         subtotal += finalPrice;
 
-        const packageTests = itemData.includesTests.map((t) => ({
+        const packageTests = itemData.includesTests.map(t => ({
           testId: t.test?._id,
           testName: t.test?.name,
           testCode: t.test?.code,
-          price: t.test?.price,
+          price: t.test?.price
         }));
 
         processedItems.push({
@@ -86,16 +115,27 @@ exports.createBill = async (req, res) => {
           discountValue: itemData.regularPrice - itemData.specialPrice,
           discountAmount: itemData.regularPrice - itemData.specialPrice,
           isPackage: true,
-          packageTests,
+          packageTests
         });
       }
     }
 
-    // 3️⃣ Set defaults for payment
-    const amountPaid = 0;
-    const balanceDue = subtotal;
-    const paymentStatus = "Pending";
-    const paymentMode = "Cash";
+    // 3️⃣ TOTAL CALCULATION
+    const totalAmount = subtotal;
+
+    // ❌ Prevent overpayment
+    if (amountPaid > totalAmount) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        message: "Amount paid cannot exceed total amount"
+      });
+    }
+
+    const balanceDue = totalAmount - amountPaid;
+
+    let paymentStatus = "Pending";
+    if (amountPaid === totalAmount) paymentStatus = "Paid";
+    else if (amountPaid > 0) paymentStatus = "Partial";
 
     // 4️⃣ Create bill
     const bill = await Billing.create(
@@ -117,7 +157,7 @@ exports.createBill = async (req, res) => {
         taxPercentage: 0,
         taxAmount: 0,
         roundOff: 0,
-        totalAmount: subtotal,
+        totalAmount,
 
         amountPaid,
         balanceDue,
@@ -126,7 +166,7 @@ exports.createBill = async (req, res) => {
 
         notes,
         franchiseId: req.user.franchiseId,
-        createdBy: req.user._id,
+        createdBy: req.user.id
       }],
       { session }
     );
@@ -136,15 +176,160 @@ exports.createBill = async (req, res) => {
 
     return res.status(201).json({
       message: "Bill created successfully",
-      data: bill[0],
+      data: bill[0]
     });
 
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    return res.status(500).json({ message: "Failed to create bill", error: error.message });
+
+    return res.status(500).json({
+      message: "Failed to create bill",
+      error: error.message
+    });
   }
 };
+
+
+// exports.createBill = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const { patientId, appointmentId, items, doctorName, referredBy, notes } = req.body;
+
+//     // 1️⃣ Fetch patient info
+//     const patient = await Patient.findOne({ _id: patientId, franchiseId: req.user.franchiseId }).session(session);
+//     if (!patient) {
+//       await session.abortTransaction();
+//       return res.status(404).json({ message: "Patient not found" });
+//     }
+
+//     // 2️⃣ Process items
+//     const processedItems = [];
+//     let subtotal = 0;
+
+//     for (const item of items) {
+//       const quantity = item.quantity || 1;
+//       let itemData, itemType;
+
+//       // Check Test
+//       itemData = await Test.findOne({ _id: item.itemId, franchiseId: req.user.franchiseId, isActive: true }).session(session);
+//       if (itemData) itemType = "Test";
+
+//       // Check Package
+//       if (!itemData) {
+//         itemData = await Package.findOne({ _id: item.itemId, franchiseId: req.user.franchiseId, isActive: true })
+//           .populate("includesTests.test", "name code price")
+//           .session(session);
+//         if (itemData) itemType = "Package";
+//       }
+
+//       if (!itemData) {
+//         await session.abortTransaction();
+//         return res.status(400).json({ message: `Invalid itemId: ${item.itemId}` });
+//       }
+
+//       if (itemType === "Test") {
+//         const finalPrice = itemData.price * quantity;
+//         subtotal += finalPrice;
+
+//         processedItems.push({
+//           itemType,
+//           itemId: itemData._id,
+//           itemName: itemData.name,
+//           itemCode: itemData.code,
+//           quantity,
+//           unitPrice: itemData.price,
+//           finalPrice,
+//           discountType: "None",
+//           discountValue: 0,
+//           discountAmount: 0,
+//           isPackage: false,
+//         });
+//       } else if (itemType === "Package") {
+//         const unitPrice = itemData.specialPrice;
+//         const finalPrice = unitPrice * quantity;
+//         subtotal += finalPrice;
+
+//         const packageTests = itemData.includesTests.map((t) => ({
+//           testId: t.test?._id,
+//           testName: t.test?.name,
+//           testCode: t.test?.code,
+//           price: t.test?.price,
+//         }));
+
+//         processedItems.push({
+//           itemType,
+//           itemId: itemData._id,
+//           itemName: itemData.name,
+//           itemCode: itemData.code,
+//           quantity,
+//           unitPrice,
+//           finalPrice,
+//           discountType: "Fixed",
+//           discountValue: itemData.regularPrice - itemData.specialPrice,
+//           discountAmount: itemData.regularPrice - itemData.specialPrice,
+//           isPackage: true,
+//           packageTests,
+//         });
+//       }
+//     }
+
+//     // 3️⃣ Set defaults for payment
+//     const amountPaid = 0;
+//     const balanceDue = subtotal;
+//     const paymentStatus = "Pending";
+//     const paymentMode = "Cash";
+
+//     // 4️⃣ Create bill
+//     const bill = await Billing.create(
+//       [{
+//         patientId: patient._id,
+//         patientName: patient.name,
+//         patientAge: patient.age,
+//         patientGender: patient.gender,
+//         patientPhone: patient.phone,
+
+//         appointmentId: appointmentId || null,
+//         doctorName: doctorName || patient.doctorName,
+//         referredBy: referredBy || patient.referredBy,
+
+//         items: processedItems,
+//         subtotal,
+//         discount: 0,
+//         tax: 0,
+//         taxPercentage: 0,
+//         taxAmount: 0,
+//         roundOff: 0,
+//         totalAmount: subtotal,
+
+//         amountPaid,
+//         balanceDue,
+//         paymentStatus,
+//         paymentMode,
+
+//         notes,
+//         franchiseId: req.user.franchiseId,
+//         createdBy: req.user._id,
+//       }],
+//       { session }
+//     );
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     return res.status(201).json({
+//       message: "Bill created successfully",
+//       data: bill[0],
+//     });
+
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     return res.status(500).json({ message: "Failed to create bill", error: error.message });
+//   }
+// };
 
 
 

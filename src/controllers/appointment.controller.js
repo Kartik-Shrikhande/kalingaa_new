@@ -4,6 +4,10 @@ const Patient = require("../models/patient.model");
 const Test = require("../models/test.model");
 const mongoose = require("mongoose");
 
+
+
+
+//APPOINTMENT ADMIN APIS
 // Helper function to flatten appointment data for the Frontend
 const formatAppointment = (apt) => {
   // Logic to get a display name for the services
@@ -178,3 +182,6 @@ exports.remove = async (req, res) => {
       .json({ message: "Failed to cancel", error: error.message });
   }
 };
+
+
+//APPOINTMENT PATIENT APIS
