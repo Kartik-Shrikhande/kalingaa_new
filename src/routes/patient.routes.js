@@ -5,6 +5,7 @@ const { validationResult } = require("express-validator");
 
 const controller = require("../controllers/patient.controller");
 const validator = require("../validators/patient.validator");
+const appointmentController = require("../controllers/appointment.controller");
 
 router.post("/login", controller.patientLogin);
 
@@ -63,6 +64,22 @@ router.delete(
 router.get("/bills", controller.getPatientBills);
 
 router.get("/bills/:id", controller.getPatientBillById)
+
+//Appointments for patient
+
+
+
+
+// router.use(authenticateUser, authorizeRoles(["Patient"]));
+
+router.post("/appointments/book", appointmentController.createAppointment);
+router.get("/appointments", appointmentController.getAppointments);
+router.get("/appointments/:id", appointmentController.getAppointmentById);
+router.put("/appointments/:id", appointmentController.updateAppointment);
+router.patch("/appointments/cancel/:id", appointmentController.cancelAppointment);
+
+module.exports = router;
+
 
 
 module.exports = router;

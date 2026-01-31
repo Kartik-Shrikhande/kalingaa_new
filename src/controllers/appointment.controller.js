@@ -185,3 +185,202 @@ exports.remove = async (req, res) => {
 
 
 //APPOINTMENT PATIENT APIS
+
+
+
+
+/* ===============================
+   CREATE APPOINTMENT
+================================ */
+exports.createAppointment = async (req, res) => {
+  try {
+    const { appointmentDate, appointmentTime, items, notes } = req.body;
+
+    if (!appointmentDate || !appointmentTime || !items || !items.length) {
+      return res.status(400).json({
+        message: "appointmentDate, appointmentTime and items are required"
+      });
+    }
+
+    // Calculate total amount
+    const totalAmount = items.reduce(
+      (sum, item) => sum + (item.price || 0),
+      0
+    );
+
+    const appointment = await Appointment.create({
+      patientId: req.user.id,
+      franchiseId: req.user.franchiseId,
+      appointmentDate,
+      appointmentTime,
+      items,
+      notes,
+      totalAmount,
+      status: "Scheduled",
+      billingStatus: "Unpaid"
+    });
+
+    return res.status(201).json({
+      message: "Appointment created successfully",
+      data: appointment
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to create appointment",
+      error: error.message
+    });
+  }
+};
+
+/* ===============================
+   GET ALL APPOINTMENTS (PATIENT)
+================================ */
+exports.getAppointments = async (req, res) => {
+  try {
+    const { status, billingStatus } = req.query;
+
+    const filter = {
+      patientId: req.user.id,
+      franchiseId: req.user.franchiseId
+    };
+
+    if (status) filter.status = status;
+    if (billingStatus) filter.billingStatus = billingStatus;
+
+    const appointments = await Appointment.find(filter)
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      total: appointments.length,
+      data: appointments
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch appointments",
+      error: error.message
+    });
+  }
+};
+
+/* ===============================
+   GET SINGLE APPOINTMENT
+================================ */
+exports.getAppointmentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid appointment ID" });
+    }
+
+    const appointment = await Appointment.findOne({
+      _id: id,
+      patientId: req.user.id,
+      franchiseId: req.user.franchiseId
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    return res.status(200).json({ data: appointment });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch appointment",
+      error: error.message
+    });
+  }
+};
+
+/* ===============================
+   UPDATE APPOINTMENT
+================================ */
+exports.updateAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { appointmentDate, appointmentTime, items, notes } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid appointment ID" });
+    }
+
+    const appointment = await Appointment.findOne({
+      _id: id,
+      patientId: req.user.id,
+      franchiseId: req.user.franchiseId
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    if (appointment.status !== "Scheduled") {
+      return res.status(400).json({
+        message: "Only scheduled appointments can be updated"
+      });
+    }
+
+    if (appointmentDate) appointment.appointmentDate = appointmentDate;
+    if (appointmentTime) appointment.appointmentTime = appointmentTime;
+    if (notes) appointment.notes = notes;
+
+    if (items && items.length) {
+      appointment.items = items;
+      appointment.totalAmount = items.reduce(
+        (sum, item) => sum + (item.price || 0),
+        0
+      );
+    }
+
+    await appointment.save();
+
+    return res.status(200).json({
+      message: "Appointment updated successfully",
+      data: appointment
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to update appointment",
+      error: error.message
+    });
+  }
+};
+
+/* ===============================
+   CANCEL APPOINTMENT
+================================ */
+exports.cancelAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid appointment ID" });
+    }
+
+    const appointment = await Appointment.findOne({
+      _id: id,
+      patientId: req.user.id,
+      franchiseId: req.user.franchiseId
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    if (appointment.status === "Cancelled") {
+      return res.status(400).json({ message: "Appointment already cancelled" });
+    }
+
+    appointment.status = "Cancelled";
+    await appointment.save();
+
+    return res.status(200).json({
+      message: "Appointment cancelled successfully"
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to cancel appointment",
+      error: error.message
+    });
+  }
+};

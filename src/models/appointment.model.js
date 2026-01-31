@@ -30,15 +30,15 @@ const appointmentSchema = new mongoose.Schema(
       default: "Scheduled",
     },
     totalAmount: { type: Number, default: 0 },
-    billingStatus: {
-      type: String,
-      enum: ["Unpaid", "Billed"],
-      default: "Unpaid",
-    },
-    billId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Billing",
-    },
+    // billingStatus: {
+    //   type: String,
+    //   enum: ["Unpaid", "Billed"],
+    //   default: "Unpaid",
+    // },
+    // billId: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "Billing",
+    // },
   },
   { timestamps: true },
 );
