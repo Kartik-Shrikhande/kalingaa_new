@@ -6,6 +6,8 @@ const Package = require("../models/package.model");
 const mongoose = require("mongoose");
 
 
+
+
 exports.createBill = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -19,7 +21,8 @@ exports.createBill = async (req, res) => {
       referredBy,
       notes,
       amountPaid = 0,
-      paymentMode = "Cash"
+      paymentMode = "Cash",
+      discount = 0 // ✅ MANUAL BILL-LEVEL DISCOUNT
     } = req.body;
 
     /* =========================
@@ -40,7 +43,7 @@ exports.createBill = async (req, res) => {
     ========================= */
     const processedItems = [];
     let subtotal = 0;
-    let totalDiscount = 0;
+    let packageDiscountTotal = 0;
 
     for (const item of items) {
       const quantity = item.quantity || 1;
@@ -99,7 +102,7 @@ exports.createBill = async (req, res) => {
       const finalPrice = finalUnitPrice * quantity;
 
       subtotal += finalPrice;
-      totalDiscount += discountAmount;
+      packageDiscountTotal += discountAmount;
 
       const packageTests = pkg.includesTests.map(t => ({
         testId: t.test?._id,
@@ -127,7 +130,23 @@ exports.createBill = async (req, res) => {
     /* =========================
        3️⃣ TOTALS & PAYMENT
     ========================= */
-    const totalAmount = subtotal;
+
+    // ❌ Invalid discount
+    if (discount < 0) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        message: "Discount cannot be negative"
+      });
+    }
+
+    if (discount > subtotal) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        message: "Discount cannot exceed subtotal"
+      });
+    }
+
+    const totalAmount = subtotal - discount;
 
     if (amountPaid > totalAmount) {
       await session.abortTransaction();
@@ -160,7 +179,7 @@ exports.createBill = async (req, res) => {
         items: processedItems,
 
         subtotal,
-        discount: totalDiscount,
+        discount, // ✅ MANUAL BILL DISCOUNT ONLY
         tax: 0,
         taxPercentage: 0,
         taxAmount: 0,
@@ -176,7 +195,7 @@ exports.createBill = async (req, res) => {
         franchiseId: req.user.franchiseId,
         createdBy: req.user.id,
 
-        // temp values – real values generated in schema hook
+        // temp – final generated in schema hook
         billNumber: `TEMP-${Date.now()}`
       }],
       { session }
@@ -212,6 +231,7 @@ exports.createBill = async (req, res) => {
     });
   }
 };
+
 
 
 // exports.createBill = async (req, res) => {
