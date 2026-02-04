@@ -129,7 +129,7 @@ exports.getReports = async (req, res) => {
     .populate("test", "name")
     .sort({ createdAt: -1 });
 
-  res.json({ data: reports });
+  res.json({ total: reports.length, data: reports });
 };
 
 /* ---------- DELETE ---------- */

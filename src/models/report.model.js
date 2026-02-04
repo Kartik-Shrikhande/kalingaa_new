@@ -49,7 +49,7 @@ const reportSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "LabTechnician",
-      required: true,
+      // required: true,
     },
 
     verifiedBy: {
@@ -63,7 +63,7 @@ const reportSchema = new mongoose.Schema(
     franchiseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Franchise",
-      required: true,
+      // required: true,
     },
 
     isActive: { type: Boolean, default: true },

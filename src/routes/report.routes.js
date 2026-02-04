@@ -8,14 +8,14 @@ const validator = require("../validators/report.validator");
 router.use(authenticateUser);
 
 router.post(
-  "/",
+  "/create",
   authorizeRoles(["LabTechnician"]),
   validator.createReport,
   controller.createReport
 );
 
 router.put(
-  "/:id",
+  "/update/:id",
   authorizeRoles(["LabTechnician"]),
   validator.updateReport,
   controller.updateReport
@@ -27,19 +27,23 @@ router.patch(
   controller.completeReport
 );
 
-router.patch(
-  "/:id/verify",
-  authorizeRoles(["Doctor", "Admin"]),
-  controller.verifyReport
-);
+router.get("/get/:id", controller.getReportById);
+router.get("/all", controller.getReports);
 
-router.get("/:id", controller.getReportById);
-router.get("/", controller.getReports);
 
 router.delete(
-  "/:id",
+  "/delete/:id",
   authorizeRoles(["LabTechnician"]),
   controller.deleteReport
 );
+
+router.patch(
+  "/:id/verify",
+  authorizeRoles(["FranchiseAdmin"]),
+  controller.verifyReport
+);
+
+
+
 
 module.exports = router;
