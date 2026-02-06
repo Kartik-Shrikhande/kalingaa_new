@@ -62,7 +62,6 @@ router.delete(
 
 // GET PATIENT BILLS by id 
 router.get("/bills", controller.getPatientBills);
-
 router.get("/bills/:id", controller.getPatientBillById)
 
 //Appointments for patient
@@ -77,6 +76,12 @@ router.get("/appointments", appointmentController.getAppointments);
 router.get("/appointments/:id", appointmentController.getAppointmentById);
 router.put("/appointments/:id", appointmentController.updateAppointment);
 router.patch("/appointments/cancel/:id", appointmentController.cancelAppointment);
+
+
+// GET PATIENT REPORTS
+
+router.get("/reports/all", controller.getMyReports);
+router.get("/report/get/:id", controller.getMyReportById);
 
 module.exports = router;
 

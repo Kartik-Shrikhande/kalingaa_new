@@ -2,6 +2,7 @@ const Patient = require("../models/patient.model");
 const jwt = require("jsonwebtoken");
 const Billing = require("../models/billing.model");
 const { generateToken } = require("../utils/jwt");
+const Report = require("../models/report.model");
 
 exports.create = async (req, res) => {
   try {
@@ -262,5 +263,53 @@ exports.getPatientBillById = async (req, res) => {
       message: "Failed to fetch bill",
       error: error.message,
     });
+  }
+};
+
+
+//REPORT API
+
+
+/* ---------- GET ALL REPORTS (PATIENT) ---------- */
+exports.getMyReports = async (req, res) => {
+  try {
+    const reports = await Report.find({
+      patient: req.user.id,       // patient logged in
+      isActive: true,
+      status: "Verified"           // only verified reports visible
+    })
+     .select("test status reportedAt createdAt") // 👈 LIMIT FIELDS
+      .populate("test", "name category")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: reports.length,
+      data: reports
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/* ---------- GET SINGLE REPORT (PATIENT) ---------- */
+exports.getMyReportById = async (req, res) => {
+  try {
+    const report = await Report.findOne({
+      _id: req.params.id,
+      patient: req.user.id,
+      isActive: true,
+      status: "Verified"
+    })
+      .populate("patient", "name age gender")
+      .populate("test", "name category");
+
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    res.json({ success: true, data: report });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

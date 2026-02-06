@@ -43,6 +43,8 @@ router.patch(
   controller.verifyReport
 );
 
+// GET PATIENT REPORTS
+
 
 
 
