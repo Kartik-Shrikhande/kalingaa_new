@@ -11,7 +11,7 @@ const validator = require("../validators/appointment.validator");
 router.post(
   "/create",
   authenticateUser,
-  authorizeRoles(["FrontOffice", "FranchiseAdmin"]),
+  authorizeRoles(["FrontOffice", "FranchiseAdmin","LabTechnician"]),
   validator.createAppointmentValidator,
   (req, res, next) => {
     const errors = validationResult(req);
@@ -27,7 +27,7 @@ router.post(
 router.get(
   "/all",
   authenticateUser,
-  authorizeRoles(["FrontOffice", "FranchiseAdmin", "SuperAdmin"]),
+  authorizeRoles(["FrontOffice", "FranchiseAdmin", "SuperAdmin","LabTechnician"]),
   controller.getAll,
 );
 
@@ -35,7 +35,7 @@ router.get(
 router.get(
   "/get/:id",
   authenticateUser,
-  authorizeRoles(["FrontOffice", "FranchiseAdmin", "SuperAdmin"]),
+  authorizeRoles(["FrontOffice", "FranchiseAdmin", "SuperAdmin","LabTechnician"]),
   controller.getById,
 );
 
@@ -43,7 +43,7 @@ router.get(
 router.put(
   "/status/:id",
   authenticateUser,
-  authorizeRoles(["FrontOffice", "FranchiseAdmin"]),
+  authorizeRoles(["FrontOffice", "FranchiseAdmin","LabTechnician"]),
   controller.updateStatus,
 );
 
@@ -51,7 +51,7 @@ router.put(
 router.patch(
   "/cancel/:id",
   authenticateUser,
-  authorizeRoles(["FranchiseAdmin", "SuperAdmin"]),
+  authorizeRoles(["FranchiseAdmin", "SuperAdmin","LabTechnician"]),
   controller.remove,
 );
 
