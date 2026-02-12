@@ -384,3 +384,6 @@ exports.cancelAppointment = async (req, res) => {
     });
   }
 };
+
+
+//patient role - book appointemnt 

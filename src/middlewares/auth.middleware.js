@@ -3,7 +3,7 @@ const SuperAdmin = require("../models/superAdmin.model");
 const FranchiseAdmin = require("../models/franchiseAdmin.model");
 const FrontOffice = require("../models/frontOffice.model");
 const LabTechnician = require("../models/labTechnician.model");
-
+const Patient = require("../models/patient.model");
 /* 🔐 AUTHENTICATE USER */
 // exports.authenticateUser = (req, res, next) => {
 //   try {
@@ -114,6 +114,7 @@ exports.verifyToken = async (req, res) => {
       FranchiseAdmin,
       FrontOffice,
       LabTechnician,
+      Patient
     };
 
     const UserModel = models[role];
