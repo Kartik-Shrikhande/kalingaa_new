@@ -1,6 +1,7 @@
 // appointment.controller.js
 const Appointment = require("../models/appointment.model");
 const Patient = require("../models/patient.model");
+const Package = require("../models/package.model");
 const Test = require("../models/test.model");
 const mongoose = require("mongoose");
 
@@ -184,46 +185,205 @@ exports.remove = async (req, res) => {
 };
 
 
-//APPOINTMENT PATIENT APIS
+//APPOINTMENT -  PATIENT ROLE APIS
 
 
-
-
-/* ===============================
-   CREATE APPOINTMENT
-================================ */
 exports.createAppointment = async (req, res) => {
   try {
-    const { appointmentDate, appointmentTime, items, notes } = req.body;
+    const {
+      appointmentDate,
+      appointmentTime,
+      items,
+      notes,
+      patientDetails,
+      sampleCollection
+    } = req.body;
 
-    if (!appointmentDate || !appointmentTime || !items || !items.length) {
+    /* =================================
+       1️⃣ REQUIRED FIELD VALIDATION
+    ================================= */
+    if (!appointmentDate || !appointmentTime) {
       return res.status(400).json({
-        message: "appointmentDate, appointmentTime and items are required"
+        message: "appointmentDate and appointmentTime are required"
       });
     }
 
-    // Calculate total amount
-    const totalAmount = items.reduce(
-      (sum, item) => sum + (item.price || 0),
-      0
-    );
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        message: "At least one test or package must be selected"
+      });
+    }
 
+    /* =================================
+       2️⃣ DATE VALIDATION
+    ================================= */
+    const selectedDate = new Date(appointmentDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      return res.status(400).json({
+        message: "Appointment date cannot be in the past"
+      });
+    }
+
+    /* =================================
+       3️⃣ DUPLICATE ITEM VALIDATION
+    ================================= */
+    const itemIds = items.map(i => i.itemId);
+    const uniqueIds = new Set(itemIds);
+
+    if (uniqueIds.size !== itemIds.length) {
+      return res.status(400).json({
+        message: "Duplicate test/package IDs are not allowed"
+      });
+    }
+
+    /* =================================
+       4️⃣ OPTIONAL PATIENT DETAILS VALIDATION
+    ================================= */
+    if (patientDetails) {
+      if (patientDetails.age && patientDetails.age < 0) {
+        return res.status(400).json({
+          message: "Invalid patient age"
+        });
+      }
+
+      if (
+        patientDetails.phone &&
+        !/^[0-9]{10}$/.test(patientDetails.phone)
+      ) {
+        return res.status(400).json({
+          message: "Invalid phone number format"
+        });
+      }
+    }
+
+    /* =================================
+       5️⃣ SAMPLE COLLECTION VALIDATION
+    ================================= */
+    if (sampleCollection) {
+      const allowedTypes = ["Home", "Hospital"];
+
+      if (
+        sampleCollection.collectionType &&
+        !allowedTypes.includes(sampleCollection.collectionType)
+      ) {
+        return res.status(400).json({
+          message: "Invalid sample collection type"
+        });
+      }
+
+      if (
+        sampleCollection.collectionType === "Home" &&
+        !sampleCollection.collectionAddress
+      ) {
+        return res.status(400).json({
+          message: "Collection address required for Home sample"
+        });
+      }
+    }
+
+    /* =================================
+       6️⃣ PROCESS ITEMS SAFELY
+    ================================= */
+    let processedItems = [];
+    let totalAmount = 0;
+
+    for (const item of items) {
+
+      if (!mongoose.Types.ObjectId.isValid(item.itemId)) {
+        return res.status(400).json({
+          message: `Invalid itemId format: ${item.itemId}`
+        });
+      }
+
+      let itemData = null;
+      let itemType = null;
+
+      // 🔹 Check Test
+      const test = await Test.findOne({
+        _id: item.itemId,
+        franchiseId: req.user.franchiseId
+      }).select("name code price isActive");
+
+      if (test) {
+        if (!test.isActive) {
+          return res.status(400).json({
+            message: `Test '${test.name}' is inactive`
+          });
+        }
+        itemData = test;
+        itemType = "Test";
+      }
+
+      // 🔹 Check Package
+      if (!itemData) {
+        const pkg = await Package.findOne({
+          _id: item.itemId,
+          franchiseId: req.user.franchiseId
+        }).select("name code specialPrice isActive");
+
+        if (pkg) {
+          if (!pkg.isActive) {
+            return res.status(400).json({
+              message: `Package '${pkg.name}' is inactive`
+            });
+          }
+          itemData = pkg;
+          itemType = "Package";
+        }
+      }
+
+      if (!itemData) {
+        return res.status(404).json({
+          message: `Test/Package not found for ID: ${item.itemId}`
+        });
+      }
+
+      let price =
+        itemType === "Test"
+          ? itemData.price
+          : itemData.specialPrice;
+
+      totalAmount += price;
+
+      processedItems.push({
+        itemType,
+        itemId: itemData._id,
+        name: itemData.name,
+        price
+      });
+    }
+
+    /* =================================
+       7️⃣ CREATE APPOINTMENT
+    ================================= */
     const appointment = await Appointment.create({
       patientId: req.user.id,
       franchiseId: req.user.franchiseId,
       appointmentDate,
       appointmentTime,
-      items,
+      patientDetails,
+      sampleCollection,
+      items: processedItems,
       notes,
       totalAmount,
-      status: "Scheduled",
-      billingStatus: "Unpaid"
+      status: "Scheduled"
     });
 
     return res.status(201).json({
-      message: "Appointment created successfully",
-      data: appointment
+      message: "Appointment booked successfully",
+      data: {
+        appointmentId: appointment._id,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        status: appointment.status,
+        totalAmount: appointment.totalAmount,
+        items: processedItems
+      }
     });
+
   } catch (error) {
     return res.status(500).json({
       message: "Failed to create appointment",
@@ -231,6 +391,14 @@ exports.createAppointment = async (req, res) => {
     });
   }
 };
+
+
+
+
+/* ===============================
+   CREATE APPOINTMENT
+================================ */
+
 
 /* ===============================
    GET ALL APPOINTMENTS (PATIENT)
