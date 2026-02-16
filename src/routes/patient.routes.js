@@ -103,6 +103,30 @@ router.get("/package/all", packageController.getAll);
 // GET BY ID
 router.get("/package/get/:id", packageController.getById);
 
+
+
+
+
+/* Franchise Admin */
+router.get(
+  "/history",
+  authenticateUser,
+  authorizeRoles(["FranchiseAdmin","FrontOffice"]),
+  controller.getPatientHistory
+);
+
+/* Patient */
+router.get(
+  "/my/history",
+  authenticateUser,
+  authorizeRoles(["Patient"]),
+  controller.getMyHistory
+);
+
+
+
+//PATIENT HISTORY
+
 module.exports = router;
 
 

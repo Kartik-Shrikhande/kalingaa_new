@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const Billing = require("../models/billing.model");
 const { generateToken } = require("../utils/jwt");
 const Report = require("../models/report.model");
+const Appointment = require("../models/appointment.model");
 
 exports.create = async (req, res) => {
   try {
@@ -309,6 +310,89 @@ exports.getMyReportById = async (req, res) => {
     }
 
     res.json({ success: true, data: report });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+
+//patient history
+
+
+/* =====================================================
+   FRANCHISE ADMIN – GET ALL OR FILTER BY PHONE
+===================================================== */
+exports.getPatientHistory = async (req, res) => {
+  try {
+    const { phone } = req.query;
+
+    // Build patient filter
+    const patientFilter = {
+      franchiseId: req.user.franchiseId
+    };
+
+    if (phone) {
+      patientFilter.phone = phone;
+    }
+
+    const patients = await Patient.find(patientFilter).select("-password");
+
+    if (!patients.length) {
+      return res.status(404).json({ message: "No patients found" });
+    }
+
+    const patientIds = patients.map(p => p._id);
+
+    const appointments = await Appointment.find({
+      patient: { $in: patientIds },
+      isActive: true
+    }).sort({ appointmentDate: -1 });
+
+    const reports = await Report.find({
+      patient: { $in: patientIds },
+      isActive: true
+    })
+      .select("-results")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      totalPatients: patients.length,
+      patients,
+      appointments,
+      reports
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+/* =====================================================
+   PATIENT – OWN HISTORY ONLY
+===================================================== */
+exports.getMyHistory = async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.user.id).select("-password");
+
+    const appointments = await Appointment.find({
+      patient: req.user.id,
+      isActive: true
+    });
+
+    const reports = await Report.find({
+      patient: req.user.id,
+      status: "Verified",
+      isActive: true
+    }).select("-results");
+
+    res.json({
+      patient,
+      appointments,
+      reports
+    });
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
