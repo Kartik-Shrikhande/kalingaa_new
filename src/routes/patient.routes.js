@@ -6,7 +6,8 @@ const { validationResult } = require("express-validator");
 const controller = require("../controllers/patient.controller");
 const validator = require("../validators/patient.validator");
 const appointmentController = require("../controllers/appointment.controller");
-const testController = require("../controllers/test.controller");
+const testController = require("../controllers/test.controller")
+const packageController = require("../controllers/package.controller")
 
 router.post("/login", controller.patientLogin);
 
@@ -92,8 +93,16 @@ router.get("/test/all", testController.getAll);
 // GET BY ID
 router.get("/test/get/:id", testController.getById);
 
+
+
+
+//Package - PATIENT ROLE
+// GET ALL
+router.get("/package/all", packageController.getAll);
+
+// GET BY ID
+router.get("/package/get/:id", packageController.getById);
+
 module.exports = router;
 
 
-
-module.exports = router;
