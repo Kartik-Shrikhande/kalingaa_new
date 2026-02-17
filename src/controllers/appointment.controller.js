@@ -554,4 +554,98 @@ exports.cancelAppointment = async (req, res) => {
 };
 
 
-//patient role - book appointemnt 
+
+
+exports.getAppointmentsForFrontOffice = async (req, res) => {
+  try {
+    const {
+      date,
+      fromDate,
+      toDate,
+      status,
+      collectionType
+    } = req.query;
+
+    let filter = {
+      franchiseId: req.user.franchiseId
+    };
+
+    /* ===============================
+       DATE FILTERING
+    =============================== */
+
+    if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+
+      filter.appointmentDate = { $gte: start, $lte: end };
+    }
+
+    if (fromDate && toDate) {
+      filter.appointmentDate = {
+        $gte: new Date(fromDate),
+        $lte: new Date(toDate)
+      };
+    }
+
+    /* ===============================
+       STATUS FILTER
+    =============================== */
+
+    if (status) {
+      filter.status = status;
+    }
+
+    /* ===============================
+       SAMPLE COLLECTION FILTER
+    =============================== */
+
+    if (collectionType) {
+      filter["sampleCollection.collectionType"] = collectionType;
+    }
+
+    /* ===============================
+       FETCH DATA
+    =============================== */
+
+    const appointments = await Appointment.find(filter)
+      .populate("patientId", "name phone age gender")
+      .sort({ appointmentDate: 1, appointmentTime: 1 });
+
+    return res.status(200).json({
+      message: "Appointments fetched successfully",
+      total: appointments.length,
+      data: appointments.map(app => ({
+        appointmentId: app._id,
+        appointmentDate: app.appointmentDate,
+        appointmentTime: app.appointmentTime,
+        status: app.status,
+        totalAmount: app.totalAmount,
+        sampleCollection: app.sampleCollection?.collectionType || null,
+
+        patient: {
+          name: app.patientDetails?.fullName || app.patientId?.name,
+          phone: app.patientDetails?.phone || app.patientId?.phone,
+          age: app.patientDetails?.age || app.patientId?.age,
+          gender: app.patientDetails?.gender || app.patientId?.gender
+        },
+
+        items: app.items.map(item => ({
+          itemType: item.itemType,
+          name: item.name,
+          price: item.price
+        }))
+      }))
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch appointments",
+      error: error.message
+    });
+  }
+};
+

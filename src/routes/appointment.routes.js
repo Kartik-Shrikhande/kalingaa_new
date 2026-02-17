@@ -55,4 +55,13 @@ router.patch(
   controller.remove,
 );
 
+//get appontments booked by patient for front office/franchise admiin
+router.get(
+  "/patient/booking/all",
+  authenticateUser,
+  authorizeRoles(["FrontOffice", "FranchiseAdmin"]),
+  controller.getAppointmentsForFrontOffice,
+);
+
+
 module.exports = router;
