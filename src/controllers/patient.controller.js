@@ -327,7 +327,7 @@ exports.getPatientHistory = async (req, res) => {
   try {
     const { phone } = req.query;
 
-    // Build patient filter
+    // Filter patients by franchise
     const patientFilter = {
       franchiseId: req.user.franchiseId
     };
@@ -344,17 +344,50 @@ exports.getPatientHistory = async (req, res) => {
 
     const patientIds = patients.map(p => p._id);
 
-    const appointments = await Appointment.find({
-      patient: { $in: patientIds },
-      isActive: true
+    // Get appointments
+    const appointmentsRaw = await Appointment.find({
+      patientId: { $in: patientIds }
     }).sort({ appointmentDate: -1 });
 
-    const reports = await Report.find({
-      patient: { $in: patientIds },
+    // Format appointments (Add tests & packages)
+    const appointments = appointmentsRaw.map(app => {
+      const tests = app.items
+        .filter(item => item.itemType === "Test")
+        .map(item => item.name);
+
+      const packages = app.items
+        .filter(item => item.itemType === "Package")
+        .map(item => item.name);
+
+      return {
+        ...app._doc,
+        tests,
+        packages
+      };
+    });
+
+    // Get reports (if your Report has items array same as Appointment)
+    const reportsRaw = await Report.find({
+      patientId: { $in: patientIds },
       isActive: true
-    })
-      .select("-results")
+    }).select("-results")
       .sort({ createdAt: -1 });
+
+    const reports = reportsRaw.map(report => {
+      const tests = report.items
+        ?.filter(item => item.itemType === "Test")
+        .map(item => item.name) || [];
+
+      const packages = report.items
+        ?.filter(item => item.itemType === "Package")
+        .map(item => item.name) || [];
+
+      return {
+        ...report._doc,
+        tests,
+        packages
+      };
+    });
 
     res.json({
       totalPatients: patients.length,
@@ -369,23 +402,55 @@ exports.getPatientHistory = async (req, res) => {
 };
 
 
-/* =====================================================
-   PATIENT – OWN HISTORY ONLY
-===================================================== */
+
 exports.getMyHistory = async (req, res) => {
   try {
     const patient = await Patient.findById(req.user.id).select("-password");
 
-    const appointments = await Appointment.find({
-      patient: req.user.id,
-      isActive: true
+    // Get appointments
+    const appointmentsRaw = await Appointment.find({
+      patientId: req.user.id
+    }).sort({ appointmentDate: -1 });
+
+    const appointments = appointmentsRaw.map(app => {
+      const tests = app.items
+        .filter(item => item.itemType === "Test")
+        .map(item => item.name);
+
+      const packages = app.items
+        .filter(item => item.itemType === "Package")
+        .map(item => item.name);
+
+      return {
+        ...app._doc,
+        tests,
+        packages
+      };
     });
 
-    const reports = await Report.find({
-      patient: req.user.id,
+    // Get reports
+    const reportsRaw = await Report.find({
+      patientId: req.user.id,
       status: "Verified",
       isActive: true
-    }).select("-results");
+    }).select("-results")
+      .sort({ createdAt: -1 });
+
+    const reports = reportsRaw.map(report => {
+      const tests = report.items
+        ?.filter(item => item.itemType === "Test")
+        .map(item => item.name) || [];
+
+      const packages = report.items
+        ?.filter(item => item.itemType === "Package")
+        .map(item => item.name) || [];
+
+      return {
+        ...report._doc,
+        tests,
+        packages
+      };
+    });
 
     res.json({
       patient,
