@@ -3,6 +3,7 @@ const { authenticateUser } = require("../middlewares/auth.middleware");
 const { authorizeRoles } = require("../middlewares/role.middleware");
 const controller = require("../controllers/report.controller");
 const validator = require("../validators/report.validator");
+const { checkBillPayment } = require("../middlewares/checkBillPayment");
 
 
 router.use(authenticateUser);
@@ -27,7 +28,8 @@ router.patch(
   controller.completeReport
 );
 
-router.get("/get/:id", controller.getReportById);
+router.get("/get/:id", checkBillPayment,controller.getReportById);
+
 router.get("/all", controller.getReports);
 
 

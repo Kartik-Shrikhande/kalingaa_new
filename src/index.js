@@ -21,7 +21,7 @@ const appointmentRoute = require("./routes/appointment.routes");
 const packagesRoute = require("./routes/package.routes");
 const billingRoute = require("./routes/billing.routes");
 const reportRoute = require("./routes/report.routes");
-
+const paymentRoute = require("./routes/payment.routes");
 
 // Middleware
 app.use(
@@ -46,6 +46,7 @@ app.use("/api/appointment", appointmentRoute);
 app.use("/api/packages", packagesRoute);
 app.use("/api/billing", billingRoute);
 app.use("/api/report", reportRoute);
+app.use("/api/payment", paymentRoute);
 // Routes
 // app.use("/api/auth", require("./routes/auth.routes"));
 

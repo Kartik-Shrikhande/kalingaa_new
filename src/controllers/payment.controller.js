@@ -1,70 +1,64 @@
-// const razorpay = require("../config/razorpay");
-// const Payment = require("../models/Payment");
+const razorpay = require("../config/razorpay");
 
-// exports.createPaymentOrder = async (req, res) => {
-//   try {
-//     const { amount, billId } = req.body;
+exports.createOrder = async (req,res)=>{
+try{
 
-//     const options = {
-//       amount: amount * 100, // Razorpay works in paise
-//       currency: "INR",
-//       receipt: `receipt_${Date.now()}`,
-//     };
+const {amount} = req.body;
 
-//     const order = await razorpay.orders.create(options);
+const options = {
+amount: amount * 100,
+currency: "INR",
+receipt: "receipt_"+Date.now()
+};
 
-//     const payment = await Payment.create({
-//       patientId: req.user.id,
-//       billId,
-//       razorpayOrderId: order.id,
-//       amount,
-//     });
+const order = await razorpay.orders.create(options);
 
-//     res.status(200).json({
-//       success: true,
-//       order,
-//       paymentId: payment._id,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
+res.json({
+success:true,
+order
+});
+
+}catch(err){
+res.status(500).json({message:err.message});
+}
+};
 
 
-// const crypto = require("crypto");
 
-// exports.verifyPayment = async (req, res) => {
-//   try {
-//     const {
-//       razorpay_order_id,
-//       razorpay_payment_id,
-//       razorpay_signature,
-//     } = req.body;
+const crypto = require("crypto");
 
-//     const body = razorpay_order_id + "|" + razorpay_payment_id;
+exports.verifyPayment = async (req,res)=>{
 
-//     const expectedSignature = crypto
-//       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-//       .update(body.toString())
-//       .digest("hex");
+try{
 
-//     if (expectedSignature === razorpay_signature) {
+const {
+razorpay_order_id,
+razorpay_payment_id,
+razorpay_signature
+} = req.body;
 
-//       await Payment.findOneAndUpdate(
-//         { razorpayOrderId: razorpay_order_id },
-//         {
-//           razorpayPaymentId: razorpay_payment_id,
-//           razorpaySignature: razorpay_signature,
-//           status: "paid",
-//         }
-//       );
+const body = razorpay_order_id + "|" + razorpay_payment_id;
 
-//       return res.json({ success: true, message: "Payment verified" });
-//     }
+const expectedSignature = crypto
+.createHmac("sha256",process.env.RAZORPAY_KEY_SECRET)
+.update(body)
+.digest("hex");
 
-//     res.status(400).json({ message: "Invalid signature" });
+if(expectedSignature === razorpay_signature){
 
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
+return res.json({
+success:true,
+message:"Payment Verified"
+});
+
+}
+
+return res.status(400).json({
+success:false,
+message:"Invalid signature"
+});
+
+}catch(err){
+res.status(500).json({message:err.message});
+}
+};

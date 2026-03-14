@@ -1,32 +1,30 @@
 const Test = require("../models/test.model");
 
+/* ---------------- CREATE TEST ---------------- */
+
 exports.create = async (req, res) => {
   try {
-    // Check if Test model is properly imported
-    if (!Test || typeof Test.create !== "function") {
-      throw new Error("Test model not properly imported");
-    }
-
     const testData = {
       ...req.body,
-      franchiseId: req.user.franchiseId,
+      franchiseId: req.user.franchiseId, // auto attach franchise
     };
 
     const test = await Test.create(testData);
 
-    return res.status(201).json({
+    res.status(201).json({
+      success: true,
       message: "Test created successfully",
       data: test,
     });
   } catch (error) {
-    console.error("Error in create function:", error);
-    console.error("Error stack:", error.stack);
-    return res.status(500).json({
-      message: "Failed to create test",
+    res.status(500).json({
+      message: "Error creating test",
       error: error.message,
     });
   }
 };
+
+/* ---------------- GET ALL TESTS ---------------- */
 
 exports.getAll = async (req, res) => {
   try {
@@ -36,17 +34,9 @@ exports.getAll = async (req, res) => {
       franchiseId: req.user.franchiseId,
     };
 
-    if (category && category !== "All") {
-      filter.category = category;
-    }
-
-    if (testType && testType !== "All") {
-      filter.testType = testType;
-    }
-
-    if (isActive !== undefined) {
-      filter.isActive = isActive === "true";
-    }
+    if (category && category !== "All") filter.category = category;
+    if (testType && testType !== "All") filter.testType = testType;
+    if (isActive !== undefined) filter.isActive = isActive === "true";
 
     if (search) {
       filter.$or = [
@@ -55,7 +45,9 @@ exports.getAll = async (req, res) => {
       ];
     }
 
-    const tests = await Test.find(filter).sort({ name: 1 });
+    const tests = await Test.find(filter)
+      .sort({ name: 1 })
+      .lean();
 
     return res.status(200).json({
       total: tests.length,
@@ -69,17 +61,26 @@ exports.getAll = async (req, res) => {
   }
 };
 
+/* ---------------- GET TEST BY ID ---------------- */
+
 exports.getById = async (req, res) => {
   try {
     const test = await Test.findOne({
       _id: req.params.id,
       franchiseId: req.user.franchiseId,
-    });
+    }).lean();
 
     if (!test) {
       return res.status(404).json({
         message: "Test not found",
       });
+    }
+
+    // return only active parameters sorted
+    if (test.parameters) {
+      test.parameters = test.parameters
+        .filter((p) => p.isActive !== false)
+        .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
     }
 
     return res.status(200).json(test);
@@ -91,15 +92,14 @@ exports.getById = async (req, res) => {
   }
 };
 
+/* ---------------- UPDATE TEST ---------------- */
+
 exports.update = async (req, res) => {
   try {
-    const test = await Test.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        franchiseId: req.user.franchiseId,
-      },
+    const test = await Test.findByIdAndUpdate(
+      req.params.id,
       req.body,
-      { new: true },
+      { new: true }
     );
 
     if (!test) {
@@ -108,17 +108,20 @@ exports.update = async (req, res) => {
       });
     }
 
-    return res.status(200).json({
+    res.status(200).json({
+      success: true,
       message: "Test updated successfully",
       data: test,
     });
   } catch (error) {
-    return res.status(500).json({
-      message: "Failed to update test",
+    res.status(500).json({
+      message: "Error updating test",
       error: error.message,
     });
   }
 };
+
+/* ---------------- TOGGLE STATUS ---------------- */
 
 exports.toggleStatus = async (req, res) => {
   try {
@@ -148,6 +151,8 @@ exports.toggleStatus = async (req, res) => {
   }
 };
 
+/* ---------------- DELETE TEST ---------------- */
+
 exports.remove = async (req, res) => {
   try {
     const test = await Test.findOneAndDelete({
@@ -172,7 +177,8 @@ exports.remove = async (req, res) => {
   }
 };
 
-// New method to get tests for package selection
+/* ---------------- TESTS FOR PACKAGE ---------------- */
+
 exports.getTestsForSelection = async (req, res) => {
   try {
     const tests = await Test.find({
@@ -194,7 +200,8 @@ exports.getTestsForSelection = async (req, res) => {
   }
 };
 
-// Get test categories
+/* ---------------- GET CATEGORIES ---------------- */
+
 exports.getCategories = async (req, res) => {
   try {
     const categories = await Test.distinct("category", {
@@ -202,9 +209,7 @@ exports.getCategories = async (req, res) => {
       isActive: true,
     });
 
-    return res.status(200).json({
-      data: categories,
-    });
+    return res.status(200).json({ data: categories });
   } catch (error) {
     return res.status(500).json({
       message: "Failed to fetch categories",
@@ -213,7 +218,8 @@ exports.getCategories = async (req, res) => {
   }
 };
 
-// Get test types
+/* ---------------- GET TEST TYPES ---------------- */
+
 exports.getTestTypes = async (req, res) => {
   try {
     const testTypes = await Test.distinct("testType", {
@@ -221,9 +227,7 @@ exports.getTestTypes = async (req, res) => {
       isActive: true,
     });
 
-    return res.status(200).json({
-      data: testTypes,
-    });
+    return res.status(200).json({ data: testTypes });
   } catch (error) {
     return res.status(500).json({
       message: "Failed to fetch test types",
