@@ -12,70 +12,98 @@ exports.createTestValidator = () => [
     .withMessage("Price must be positive"),
 
   body("sampleType").notEmpty().withMessage("Sample type is required"),
-body("department")
-  .optional()
-  .isIn([
-    "Hematology",
-    "Biochemistry",
-    "Microbiology",
-    "Serology",
-    "Immunology",
-    "Radiology",
-    "Pathology",
-    "General",
-  ])
-  .withMessage("Invalid department"),
-body("category")
-  .optional()
-  .isString()
-  .withMessage("Category must be string"),
+
+  body("department")
+    .optional()
+    .isIn([
+      "Hematology",
+      "Biochemistry",
+      "Microbiology",
+      "Serology",
+      "Immunology",
+      "Radiology",
+      "Pathology",
+      "General",
+    ])
+    .withMessage("Invalid department"),
+
+  // ✅ FIXED (string instead of enum)
+  body("category")
+    .optional()
+    .isString()
+    .withMessage("Category must be string"),
 
   body("testType")
     .optional()
     .isIn(["Blood", "Urine", "Imaging", "ECG", "Ultrasound", "X-Ray", "Other"])
     .withMessage("Invalid test type"),
 
+  // ✅ NEW TEST LEVEL
+  body("resultType")
+    .optional()
+    .isIn(["numeric", "qualitative", "text", "microscopy"])
+    .withMessage("Invalid resultType"),
+
+  body("qualitativeOptions")
+    .optional()
+    .isArray()
+    .withMessage("qualitativeOptions must be array"),
+
   body("fastingRequired").optional().isBoolean(),
-
   body("reportTime").optional().isString(),
-
   body("specimenVolume").optional().isString(),
-
   body("container").optional().isString(),
-
   body("storageInstructions").optional().isString(),
-
   body("methodology").optional().isString(),
-
-  body("referenceRange").optional().isObject(),
 
   /* -------- PARAMETERS VALIDATION -------- */
 
-  body("parameters").optional().isArray().withMessage("Parameters must be array"),
-body("parameters")
-  .optional()
-  .isArray()
-  .withMessage("Parameters must be an array")
-  .custom((params) => {
-    const names = params.map((p) => p.name?.toLowerCase()?.trim());
-    const unique = new Set(names);
-
-    if (unique.size !== names.length) {
-      throw new Error("Duplicate parameter names not allowed");
-    }
-
-    return true;
-  }),
-  body("parameters.*.name")
+  body("parameters")
     .optional()
+    .isArray()
+    .withMessage("Parameters must be an array")
+    .custom((params) => {
+      const names = params.map((p) => p.name?.toLowerCase()?.trim());
+      const unique = new Set(names);
+
+      if (unique.size !== names.length) {
+        throw new Error("Duplicate parameter names not allowed");
+      }
+
+      return true;
+    }),
+
+  body("parameters.*.name")
     .notEmpty()
     .withMessage("Parameter name required"),
 
   body("parameters.*.unit").optional().isString(),
-
   body("parameters.*.method").optional().isString(),
-
   body("parameters.*.analyzer").optional().isString(),
+
+  // ✅ NEW
+  body("parameters.*.group")
+    .optional()
+    .isString()
+    .withMessage("Group must be string"),
+
+  body("parameters.*.resultType")
+    .optional()
+    .isIn(["numeric", "qualitative", "text"])
+    .withMessage("Invalid parameter resultType"),
+
+  body("parameters.*.qualitativeOptions")
+    .optional()
+    .isArray()
+    .withMessage("qualitativeOptions must be array"),
+
+  body("parameters.*.qualitativeOptions.*.value")
+    .optional()
+    .isString(),
+
+  body("parameters.*.qualitativeOptions.*.interpretation")
+    .optional()
+    .isString(),
 
   body("parameters.*.sortOrder")
     .optional()
@@ -89,30 +117,27 @@ body("parameters")
 
   body("parameters.*.referenceRanges.*.gender")
     .optional()
-    .isIn(["Any", "Male", "Female", "Other"])
-    .withMessage("Invalid gender"),
+    .isIn(["Any", "Male", "Female", "Other"]),
 
   body("parameters.*.referenceRanges.*.minAge")
     .optional()
-    .isNumeric()
-    .withMessage("minAge must be number"),
+    .isNumeric(),
 
   body("parameters.*.referenceRanges.*.maxAge")
     .optional()
-    .isNumeric()
-    .withMessage("maxAge must be number"),
+    .isNumeric(),
 
-  body("parameters.*.referenceRanges.*.rangeText").optional().isString(),
+  body("parameters.*.referenceRanges.*.rangeText")
+    .optional()
+    .isString(),
 
   body("parameters.*.referenceRanges.*.low")
     .optional()
-    .isNumeric()
-    .withMessage("low must be number"),
+    .isNumeric(),
 
   body("parameters.*.referenceRanges.*.high")
     .optional()
-    .isNumeric()
-    .withMessage("high must be number"),
+    .isNumeric(),
 
   /* -------- VALIDATION RESULT -------- */
 
@@ -137,37 +162,39 @@ exports.updateTestValidator = () => [
 
   body("sampleType").optional().notEmpty(),
 
-  body("category")
+  // ✅ FIXED
+  body("category").optional().isString(),
+
+  body("department")
     .optional()
     .isIn([
-      "Basic",
-      "Cardiac",
-      "Diabetic",
-      "Hormonal",
-      "Vitamin",
-      "Liver",
-      "Kidney",
-      "Lipid",
-      "Other",
+      "Hematology",
+      "Biochemistry",
+      "Microbiology",
+      "Serology",
+      "Immunology",
+      "Radiology",
+      "Pathology",
+      "General",
     ]),
 
   body("testType")
     .optional()
     .isIn(["Blood", "Urine", "Imaging", "ECG", "Ultrasound", "X-Ray", "Other"]),
 
+  // ✅ NEW
+  body("resultType")
+    .optional()
+    .isIn(["numeric", "qualitative", "text", "microscopy"]),
+
+  body("qualitativeOptions").optional().isArray(),
+
   body("fastingRequired").optional().isBoolean(),
-
   body("reportTime").optional().isString(),
-
   body("specimenVolume").optional().isString(),
-
   body("container").optional().isString(),
-
   body("storageInstructions").optional().isString(),
-
   body("methodology").optional().isString(),
-
-  body("referenceRange").optional().isObject(),
 
   /* -------- PARAMETERS VALIDATION -------- */
 
@@ -176,10 +203,19 @@ exports.updateTestValidator = () => [
   body("parameters.*.name").optional().notEmpty(),
 
   body("parameters.*.unit").optional().isString(),
-
   body("parameters.*.method").optional().isString(),
-
   body("parameters.*.analyzer").optional().isString(),
+
+  // ✅ NEW
+  body("parameters.*.group").optional().isString(),
+
+  body("parameters.*.resultType")
+    .optional()
+    .isIn(["numeric", "qualitative", "text"]),
+
+  body("parameters.*.qualitativeOptions")
+    .optional()
+    .isArray(),
 
   body("parameters.*.sortOrder").optional().isNumeric(),
 
@@ -190,13 +226,9 @@ exports.updateTestValidator = () => [
     .isIn(["Any", "Male", "Female", "Other"]),
 
   body("parameters.*.referenceRanges.*.minAge").optional().isNumeric(),
-
   body("parameters.*.referenceRanges.*.maxAge").optional().isNumeric(),
-
   body("parameters.*.referenceRanges.*.rangeText").optional().isString(),
-
   body("parameters.*.referenceRanges.*.low").optional().isNumeric(),
-
   body("parameters.*.referenceRanges.*.high").optional().isNumeric(),
 
   /* -------- VALIDATION RESULT -------- */

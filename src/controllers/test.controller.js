@@ -4,15 +4,33 @@ const Test = require("../models/test.model");
 
 exports.create = async (req, res) => {
   try {
-    const testData = {
-      ...req.body,
-      franchiseId: req.user.franchiseId, // auto attach franchise
-    };
+    const franchiseId = req.user.franchiseId;
 
-    const test = await Test.create(testData);
+    // ✅ CLEAN TEST LEVEL
+    if (req.body.resultType !== "qualitative") {
+      req.body.qualitativeOptions = [];
+    }
+
+    // ✅ CLEAN PARAMETERS
+    if (req.body.parameters?.length) {
+      req.body.parameters = req.body.parameters.map((param) => {
+        if (param.resultType !== "qualitative") {
+          param.qualitativeOptions = [];
+        }
+
+        return {
+          ...param,
+          group: param.group || "General",
+        };
+      });
+    }
+
+    const test = await Test.create({
+      ...req.body,
+      franchiseId,
+    });
 
     res.status(201).json({
-      success: true,
       message: "Test created successfully",
       data: test,
     });
@@ -96,22 +114,41 @@ exports.getById = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const test = await Test.findByIdAndUpdate(
-      req.params.id,
+    const { id } = req.params;
+    const franchiseId = req.user.franchiseId;
+
+    // ✅ CLEAN TEST LEVEL
+    if (req.body.resultType && req.body.resultType !== "qualitative") {
+      req.body.qualitativeOptions = [];
+    }
+
+    // ✅ CLEAN PARAMETERS
+    if (req.body.parameters) {
+      req.body.parameters = req.body.parameters.map((param) => ({
+        ...param,
+        group: param.group || "General",
+        qualitativeOptions:
+          param.resultType === "qualitative"
+            ? param.qualitativeOptions || []
+            : [],
+      }));
+    }
+
+    const updatedTest = await Test.findOneAndUpdate(
+      { _id: id, franchiseId },
       req.body,
       { new: true }
     );
 
-    if (!test) {
+    if (!updatedTest) {
       return res.status(404).json({
         message: "Test not found",
       });
     }
 
     res.status(200).json({
-      success: true,
       message: "Test updated successfully",
-      data: test,
+      data: updatedTest,
     });
   } catch (error) {
     res.status(500).json({
