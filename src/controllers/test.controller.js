@@ -2,9 +2,21 @@ const Test = require("../models/test.model");
 
 /* ---------------- CREATE TEST ---------------- */
 
-exports.create = async (req, res) => {
+exports.create= async (req, res) => {
   try {
     const franchiseId = req.user.franchiseId;
+
+    // ✅ CHECK DUPLICATE NAME
+    const existingTest = await Test.findOne({
+      name: req.body.name,
+      franchiseId,
+    });
+
+    if (existingTest) {
+      return res.status(400).json({
+        message: "Test with this name already exists",
+      });
+    }
 
     // ✅ CLEAN TEST LEVEL
     if (req.body.resultType !== "qualitative") {
@@ -13,16 +25,14 @@ exports.create = async (req, res) => {
 
     // ✅ CLEAN PARAMETERS
     if (req.body.parameters?.length) {
-      req.body.parameters = req.body.parameters.map((param) => {
-        if (param.resultType !== "qualitative") {
-          param.qualitativeOptions = [];
-        }
-
-        return {
-          ...param,
-          group: param.group || "General",
-        };
-      });
+      req.body.parameters = req.body.parameters.map((param) => ({
+        ...param,
+        group: param.group || "General",
+        qualitativeOptions:
+          param.resultType === "qualitative"
+            ? param.qualitativeOptions || []
+            : [],
+      }));
     }
 
     const test = await Test.create({
@@ -35,6 +45,13 @@ exports.create = async (req, res) => {
       data: test,
     });
   } catch (error) {
+    // ✅ HANDLE DUPLICATE INDEX ERROR
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Test name already exists",
+      });
+    }
+
     res.status(500).json({
       message: "Error creating test",
       error: error.message,
@@ -111,11 +128,25 @@ exports.getById = async (req, res) => {
 };
 
 /* ---------------- UPDATE TEST ---------------- */
-
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
     const franchiseId = req.user.franchiseId;
+
+    // ✅ CHECK DUPLICATE ONLY IF NAME IS CHANGING
+    if (req.body.name) {
+      const existingTest = await Test.findOne({
+        name: req.body.name,
+        franchiseId,
+        _id: { $ne: id },
+      });
+
+      if (existingTest) {
+        return res.status(400).json({
+          message: "Test with this name already exists",
+        });
+      }
+    }
 
     // ✅ CLEAN TEST LEVEL
     if (req.body.resultType && req.body.resultType !== "qualitative") {
@@ -151,13 +182,19 @@ exports.update = async (req, res) => {
       data: updatedTest,
     });
   } catch (error) {
+    // ✅ HANDLE DUPLICATE INDEX ERROR
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Test name already exists",
+      });
+    }
+
     res.status(500).json({
       message: "Error updating test",
       error: error.message,
     });
   }
 };
-
 /* ---------------- TOGGLE STATUS ---------------- */
 
 exports.toggleStatus = async (req, res) => {
