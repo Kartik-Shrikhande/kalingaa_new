@@ -1,64 +1,109 @@
 const razorpay = require("../config/razorpay");
+const Billing = require("../models/billing.model"); 
 
-exports.createOrder = async (req,res)=>{
-try{
+exports.createOrderForBill = async (req, res) => {
+  try {
 
-const {amount} = req.body;
+    const { billId } = req.params;
 
-const options = {
-amount: amount * 100,
-currency: "INR",
-receipt: "receipt_"+Date.now()
-};
+    console.log("BillId:", billId);
 
-const order = await razorpay.orders.create(options);
+    const bill = await Billing.findById(billId);
 
-res.json({
-success:true,
-order
-});
+    // console.log("Bill Found:", bill);
 
-}catch(err){
-res.status(500).json({message:err.message});
-}
+    if (!bill) {
+      return res.status(404).json({
+        success: false,
+        message: "Bill not found"
+      });
+    }
+
+    const amount = bill.balanceDue * 100;
+
+    const order = await razorpay.orders.create({
+      amount,
+      currency: "INR",
+      receipt: `bill_${bill._id}`
+    });
+
+    res.json({
+      success: true,
+      order
+    });
+
+  } catch (err) {
+    console.error("🔥 Create Order Error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
 };
 
 
 
 const crypto = require("crypto");
 
-exports.verifyPayment = async (req,res)=>{
 
-try{
 
-const {
-razorpay_order_id,
-razorpay_payment_id,
-razorpay_signature
-} = req.body;
+exports.verifyPayment = async (req, res) => {
+  try {
 
-const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      billId
+    } = req.body;
 
-const expectedSignature = crypto
-.createHmac("sha256",process.env.RAZORPAY_KEY_SECRET)
-.update(body)
-.digest("hex");
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
 
-if(expectedSignature === razorpay_signature){
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest("hex");
 
-return res.json({
-success:true,
-message:"Payment Verified"
-});
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid signature"
+      });
+    }
 
-}
+    // 🔥 UPDATE BILL HERE
+    const bill = await Billing.findById(billId);
 
-return res.status(400).json({
-success:false,
-message:"Invalid signature"
-});
+    if (!bill) {
+      return res.status(404).json({
+        success: false,
+        message: "Bill not found"
+      });
+    }
 
-}catch(err){
-res.status(500).json({message:err.message});
-}
+    bill.amountPaid = bill.totalAmount;
+    bill.balanceDue = 0;
+    bill.paymentStatus = "Paid";
+    bill.paymentMode = "Online";
+
+    bill.paymentDetails = {
+      transactionId: razorpay_payment_id
+    };
+
+    await bill.save();
+
+    return res.json({
+      success: true,
+      message: "Payment verified & bill updated"
+    });
+
+  } catch (err) {
+    console.error("Verify Error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
 };

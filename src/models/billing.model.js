@@ -160,6 +160,7 @@ const billingSchema = new mongoose.Schema(
         "Cheque",
         "Insurance",
         "Multiple",
+        "Online"
       ],
       default: "Cash",
     },
