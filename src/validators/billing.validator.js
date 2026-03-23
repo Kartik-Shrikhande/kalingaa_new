@@ -33,6 +33,7 @@ exports.createBillingValidator = () => [
       "Cheque",
       "Insurance",
       "Multiple",
+       "Online" 
     ])
     .withMessage("Invalid payment mode"),
 
@@ -75,6 +76,7 @@ exports.updatePaymentValidator = () => [
       "Cheque",
       "Insurance",
       "Multiple",
+       "Online" 
     ]),
 
   body("paymentStatus")
