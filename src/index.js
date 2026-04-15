@@ -47,6 +47,9 @@ app.use("/api/packages", packagesRoute);
 app.use("/api/billing", billingRoute);
 app.use("/api/report", reportRoute);
 app.use("/api/payment", paymentRoute);
+// app.use("/api/whatsapp", require("../src/routes/temp.nessage.routes"));
+app.use("/api/whatsapp", require("./routes/whatsapp.routes"));
+app.use("/uploads", require("express").static("uploads"));
 // Routes
 // app.use("/api/auth", require("./routes/auth.routes"));
 

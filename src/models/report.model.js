@@ -19,7 +19,7 @@ const testResultSchema = new mongoose.Schema(
 /* ---------- Main Schema ---------- */
 const reportSchema = new mongoose.Schema(
   {
-    reportId: { type: String, unique: true },
+    // reportId: { type: String, unique: true },
 
     patient: {
       type: mongoose.Schema.Types.ObjectId,
@@ -72,16 +72,25 @@ const reportSchema = new mongoose.Schema(
 );
 
 /* ---------- Auto ID ---------- */
-reportSchema.pre("save", async function () {
-  if (!this.reportId) {
-    const count = await this.constructor.countDocuments();
-    this.reportId = `RPT${String(count + 1).padStart(5, "0")}`;
-  }
+// const Counter = require("../models/counter.model");
 
-  if (this.status === "Completed" && !this.reportedAt) {
-    this.reportedAt = new Date();
-  }
-});
+// reportSchema.pre("save", async function () {
+//   // ✅ SAFE UNIQUE ID GENERATION
+//   if (!this.reportId) {
+//     const counter = await Counter.findOneAndUpdate(
+//       { name: "reportId" },
+//       { $inc: { seq: 1 } },
+//       { new: true, upsert: true }
+//     );
+
+//     this.reportId = `RPT${String(counter.seq).padStart(5, "0")}`;
+//   }
+
+//   // ✅ Existing logic
+//   if (this.status === "Completed" && !this.reportedAt) {
+//     this.reportedAt = new Date();
+//   }
+// });
 
 module.exports = mongoose.model("Report", reportSchema);
 

@@ -625,6 +625,8 @@ exports.getAppointmentsForFrontOffice = async (req, res) => {
         status: app.status,
         totalAmount: app.totalAmount,
         sampleCollection: app.sampleCollection?.collectionType || null,
+          notes: app.notes || null,
+  createdAt: app.createdAt,
 
         patient: {
           name: app.patientDetails?.fullName || app.patientId?.name,

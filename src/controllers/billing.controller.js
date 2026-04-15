@@ -7,7 +7,6 @@ const mongoose = require("mongoose");
 
 
 
-
 exports.createBill = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -22,7 +21,7 @@ exports.createBill = async (req, res) => {
       notes,
       amountPaid = 0,
       paymentMode = "Cash",
-      discount = 0 // ✅ MANUAL BILL-LEVEL DISCOUNT
+      discount = 0
     } = req.body;
 
     /* =========================
@@ -43,13 +42,12 @@ exports.createBill = async (req, res) => {
     ========================= */
     const processedItems = [];
     let subtotal = 0;
-    let packageDiscountTotal = 0;
 
     for (const item of items) {
       const quantity = item.quantity || 1;
 
-      /* ---------- TRY TEST ---------- */
-      let test = await Test.findOne({
+      /* ---------- TEST ---------- */
+      const test = await Test.findOne({
         _id: item.itemId,
         franchiseId: req.user.franchiseId,
         isActive: true
@@ -64,7 +62,7 @@ exports.createBill = async (req, res) => {
         processedItems.push({
           itemType: "Test",
           itemId: test._id,
-          itemName: test.name,
+          itemName: test.name, // ✅ always stored
           itemCode: test.code,
           quantity,
           unitPrice,
@@ -78,8 +76,8 @@ exports.createBill = async (req, res) => {
         continue;
       }
 
-      /* ---------- TRY PACKAGE ---------- */
-      let pkg = await Package.findOne({
+      /* ---------- PACKAGE ---------- */
+      const pkg = await Package.findOne({
         _id: item.itemId,
         franchiseId: req.user.franchiseId,
         isActive: true
@@ -94,6 +92,14 @@ exports.createBill = async (req, res) => {
         });
       }
 
+      // ✅ CRITICAL FIX: ensure populated test exists
+      if (pkg.includesTests.some(t => !t.test)) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          message: `Some tests inside package ${pkg.name} are missing or deleted`
+        });
+      }
+
       const unitPrice = pkg.regularPrice;
       const finalUnitPrice = pkg.specialPrice;
 
@@ -102,13 +108,13 @@ exports.createBill = async (req, res) => {
       const finalPrice = finalUnitPrice * quantity;
 
       subtotal += finalPrice;
-      packageDiscountTotal += discountAmount;
 
+      // ✅ FINAL CORRECT STORAGE
       const packageTests = pkg.includesTests.map(t => ({
-        testId: t.test?._id,
-        testName: t.test?.name,
-        testCode: t.test?.code,
-        price: t.test?.price
+        testId: t.test._id,
+        testName: t.test.name,   // ✅ FIXED
+        testCode: t.test.code,
+        price: t.test.price
       }));
 
       processedItems.push({
@@ -128,21 +134,13 @@ exports.createBill = async (req, res) => {
     }
 
     /* =========================
-       3️⃣ TOTALS & PAYMENT
+       3️⃣ TOTAL CALCULATION
     ========================= */
 
-    // ❌ Invalid discount
-    if (discount < 0) {
+    if (discount < 0 || discount > subtotal) {
       await session.abortTransaction();
       return res.status(400).json({
-        message: "Discount cannot be negative"
-      });
-    }
-
-    if (discount > subtotal) {
-      await session.abortTransaction();
-      return res.status(400).json({
-        message: "Discount cannot exceed subtotal"
+        message: "Invalid discount value"
       });
     }
 
@@ -179,11 +177,7 @@ exports.createBill = async (req, res) => {
         items: processedItems,
 
         subtotal,
-        discount, // ✅ MANUAL BILL DISCOUNT ONLY
-        tax: 0,
-        taxPercentage: 0,
-        taxAmount: 0,
-        roundOff: 0,
+        discount,
         totalAmount,
 
         amountPaid,
@@ -193,9 +187,7 @@ exports.createBill = async (req, res) => {
 
         notes,
         franchiseId: req.user.franchiseId,
-        createdBy: req.user.id,
 
-        // temp – final generated in schema hook
         billNumber: `TEMP-${Date.now()}`
       }],
       { session }
@@ -640,7 +632,64 @@ exports.getById = async (req, res) => {
       });
     }
 
-    return res.status(200).json(bill);
+    /* =========================
+       1️⃣ Collect all testIds
+    ========================= */
+    let allTestIds = [];
+
+    bill.items.forEach(item => {
+      if (item.isPackage && item.packageTests?.length) {
+        item.packageTests.forEach(t => {
+          if (t.testId) {
+            allTestIds.push(t.testId.toString());
+          }
+        });
+      }
+    });
+
+    /* =========================
+       2️⃣ Fetch test data
+    ========================= */
+    const tests = await Test.find({
+      _id: { $in: allTestIds }
+    }).select("name code");
+
+    // Map for quick lookup
+    const testMap = {};
+    tests.forEach(t => {
+      testMap[t._id.toString()] = t;
+    });
+
+    /* =========================
+       3️⃣ Replace testName
+    ========================= */
+    const updatedItems = bill.items.map(item => {
+      if (item.isPackage && item.packageTests?.length) {
+        const updatedPackageTests = item.packageTests.map(test => {
+          const dbTest = testMap[test.testId?.toString()];
+
+          return {
+            ...test._doc,
+            testName: dbTest?.name || test.testName || "N/A",
+            testCode: dbTest?.code || test.testCode
+          };
+        });
+
+        return {
+          ...item._doc,
+          packageTests: updatedPackageTests
+        };
+      }
+      return item;
+    });
+
+    const updatedBill = {
+      ...bill._doc,
+      items: updatedItems
+    };
+
+    return res.status(200).json(updatedBill);
+
   } catch (error) {
     return res.status(500).json({
       message: "Failed to fetch bill",

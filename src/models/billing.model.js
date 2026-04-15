@@ -174,6 +174,13 @@ const billingSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    reportUrl: {
+  type: String,
+},
+    whatsappSent: {
+  type: Boolean,
+  default: false,
+},
     franchiseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Franchise",
