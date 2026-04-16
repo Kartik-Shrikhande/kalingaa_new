@@ -95,7 +95,6 @@ exports.create = async (req, res) => {
   }
 };
 
-
 exports.getAll = async (req, res) => {
   try {
     const filter =
@@ -107,25 +106,27 @@ exports.getAll = async (req, res) => {
       .populate("patientId", "name phone age gender email address")
       .sort({ createdAt: -1 });
 
-    const data = appointments.map((app, index) => ({
-      srNo: index + 1, // ✅ helps identify next record
+    const formattedData = appointments.map((apt) => {
+      const formatted = formatAppointment(apt);
 
-      ...app.toObject(),
+      return {
+        ...formatted,
 
-      patient: {
-        name: app.patientDetails?.fullName || app.patientId?.name,
-        phone: app.patientDetails?.phone || app.patientId?.phone,
-        age: app.patientDetails?.age || app.patientId?.age,
-        gender: app.patientDetails?.gender || app.patientId?.gender,
-        email: app.patientDetails?.email || app.patientId?.email,
-        address: app.patientDetails?.address || app.patientId?.address
-      }
-    }));
+        // ✅ ADD PATIENT OBJECT (without breaking existing response)
+        patient: {
+          name: apt.patientDetails?.fullName || apt.patientId?.name,
+          phone: apt.patientDetails?.phone || apt.patientId?.phone,
+          age: apt.patientDetails?.age || apt.patientId?.age,
+          gender: apt.patientDetails?.gender || apt.patientId?.gender,
+          email: apt.patientDetails?.email || apt.patientId?.email,
+          address: apt.patientDetails?.address || apt.patientId?.address
+        }
+      };
+    });
 
     return res.status(200).json({
-      message: "Appointments fetched successfully",
-      total: data.length,
-      data
+      total: formattedData.length,
+      data: formattedData,
     });
 
   } catch (error) {
@@ -147,7 +148,7 @@ exports.getById = async (req, res) => {
 
     return res.status(200).json({
       message: "Appointment fetched successfully",
-      data: appointment   // ✅ RAW DB DATA
+      data: appointment
     });
 
   } catch (error) {
@@ -157,46 +158,6 @@ exports.getById = async (req, res) => {
     });
   }
 };
-
-// exports.getAll = async (req, res) => {
-//   try {
-//     const filter =
-//       req.user.role === "SuperAdmin"
-//         ? {}
-//         : { franchiseId: req.user.franchiseId };
-
-//     const appointments = await Appointment.find(filter)
-//       .populate("patientId", "name phone")
-//       .sort({ createdAt: -1 });
-
-//     const formattedData = appointments.map((apt) => formatAppointment(apt));
-
-//     return res.status(200).json({
-//       total: formattedData.length,
-//       data: formattedData,
-//     });
-//   } catch (error) {
-//     return res
-//       .status(500)
-//       .json({ message: "Failed to fetch appointments", error: error.message });
-//   }
-// };
-
-// exports.getById = async (req, res) => {
-//   try {
-//     const appointment = await Appointment.findById(req.params.id).populate(
-//       "patientId",
-//       "name phone age gender email address",
-//     );
-//     // REMOVED testId and packageId population
-
-//     if (!appointment) return res.status(404).json({ message: "Not found" });
-//     // ... security check ...
-//     return res.status(200).json(formatAppointment(appointment));
-//   } catch (error) {
-//     return res.status(500).json({ message: "Error", error: error.message });
-//   }
-// };
 
 exports.updateStatus = async (req, res) => {
   try {
