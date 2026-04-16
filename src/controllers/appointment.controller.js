@@ -95,6 +95,7 @@ exports.create = async (req, res) => {
   }
 };
 
+
 exports.getAll = async (req, res) => {
   try {
     const filter =
@@ -103,37 +104,99 @@ exports.getAll = async (req, res) => {
         : { franchiseId: req.user.franchiseId };
 
     const appointments = await Appointment.find(filter)
-      .populate("patientId", "name phone")
+      .populate("patientId", "name phone age gender email address")
       .sort({ createdAt: -1 });
 
-    const formattedData = appointments.map((apt) => formatAppointment(apt));
+    const data = appointments.map((app, index) => ({
+      srNo: index + 1, // ✅ helps identify next record
+
+      ...app.toObject(),
+
+      patient: {
+        name: app.patientDetails?.fullName || app.patientId?.name,
+        phone: app.patientDetails?.phone || app.patientId?.phone,
+        age: app.patientDetails?.age || app.patientId?.age,
+        gender: app.patientDetails?.gender || app.patientId?.gender,
+        email: app.patientDetails?.email || app.patientId?.email,
+        address: app.patientDetails?.address || app.patientId?.address
+      }
+    }));
 
     return res.status(200).json({
-      total: formattedData.length,
-      data: formattedData,
+      message: "Appointments fetched successfully",
+      total: data.length,
+      data
     });
+
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Failed to fetch appointments", error: error.message });
+    return res.status(500).json({
+      message: "Failed to fetch appointments",
+      error: error.message
+    });
   }
 };
 
 exports.getById = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id).populate(
-      "patientId",
-      "name phone age gender email address",
-    );
-    // REMOVED testId and packageId population
+    const appointment = await Appointment.findById(req.params.id)
+      .populate("patientId", "name phone age gender email address");
 
-    if (!appointment) return res.status(404).json({ message: "Not found" });
-    // ... security check ...
-    return res.status(200).json(formatAppointment(appointment));
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    return res.status(200).json({
+      message: "Appointment fetched successfully",
+      data: appointment   // ✅ RAW DB DATA
+    });
+
   } catch (error) {
-    return res.status(500).json({ message: "Error", error: error.message });
+    return res.status(500).json({
+      message: "Error",
+      error: error.message
+    });
   }
 };
+
+// exports.getAll = async (req, res) => {
+//   try {
+//     const filter =
+//       req.user.role === "SuperAdmin"
+//         ? {}
+//         : { franchiseId: req.user.franchiseId };
+
+//     const appointments = await Appointment.find(filter)
+//       .populate("patientId", "name phone")
+//       .sort({ createdAt: -1 });
+
+//     const formattedData = appointments.map((apt) => formatAppointment(apt));
+
+//     return res.status(200).json({
+//       total: formattedData.length,
+//       data: formattedData,
+//     });
+//   } catch (error) {
+//     return res
+//       .status(500)
+//       .json({ message: "Failed to fetch appointments", error: error.message });
+//   }
+// };
+
+// exports.getById = async (req, res) => {
+//   try {
+//     const appointment = await Appointment.findById(req.params.id).populate(
+//       "patientId",
+//       "name phone age gender email address",
+//     );
+//     // REMOVED testId and packageId population
+
+//     if (!appointment) return res.status(404).json({ message: "Not found" });
+//     // ... security check ...
+//     return res.status(200).json(formatAppointment(appointment));
+//   } catch (error) {
+//     return res.status(500).json({ message: "Error", error: error.message });
+//   }
+// };
 
 exports.updateStatus = async (req, res) => {
   try {
