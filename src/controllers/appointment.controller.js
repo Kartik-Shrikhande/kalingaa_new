@@ -42,15 +42,19 @@ exports.create = async (req, res) => {
   try {
     const {
       patientId,
-      date, // Coming from frontend
-      time, // Coming from frontend
+      date,
+      time,
       items,
+      testId,
+      packageId,
       notes,
     } = req.body;
 
     // 1. Validate Patient
     const patient = await Patient.findById(patientId);
-    if (!patient) return res.status(404).json({ message: "Patient not found" });
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
 
     // 2. Validate Franchise
     if (
@@ -60,38 +64,85 @@ exports.create = async (req, res) => {
       return res.status(403).json({ message: "Access denied to this patient" });
     }
 
-    // 3. Process Items & Calculate Total
+    let processedItems = [];
     let calculatedTotal = 0;
-    const processedItems = items.map((item) => {
-      calculatedTotal += item.price;
-      return item;
-    });
 
-    // 4. CREATE with correct schema field names
+    // 3. If items array is provided
+    if (items && Array.isArray(items) && items.length > 0) {
+      processedItems = items.map((item) => {
+        calculatedTotal += item.price;
+        return item;
+      });
+    }
+
+    // 4. If testId is provided
+    else if (testId) {
+      const test = await Test.findById(testId);
+      if (!test) {
+        return res.status(404).json({ message: "Test not found" });
+      }
+
+      processedItems.push({
+        itemType: "Test",
+        itemId: test._id,
+        name: test.name,
+        price: test.price,
+      });
+
+      calculatedTotal += test.price;
+    }
+
+    // 5. If packageId is provided
+    else if (packageId) {
+      const pkg = await Package.findById(packageId);
+      if (!pkg) {
+        return res.status(404).json({ message: "Package not found" });
+      }
+
+      processedItems.push({
+        itemType: "Package",
+        itemId: pkg._id,
+        name: pkg.name,
+        price: pkg.specialPrice || pkg.regularPrice,
+      });
+
+      calculatedTotal += pkg.specialPrice || pkg.regularPrice;
+    }
+
+    // 6. If nothing provided
+    else {
+      return res.status(400).json({
+        message: "Provide either items array, testId, or packageId",
+      });
+    }
+
+    // 7. Create Appointment
     const appointment = await Appointment.create({
       patientId,
       franchiseId: patient.franchiseId,
-      appointmentDate: date, // Map 'date' -> 'appointmentDate'
-      appointmentTime: time, // Map 'time' -> 'appointmentTime'
+      appointmentDate: date,
+      appointmentTime: time,
       items: processedItems,
       totalAmount: calculatedTotal,
       notes,
     });
 
-    // 5. Populate for response (Prevents "Unknown" name issues)
+    // 8. Populate Response
     const populatedApt = await Appointment.findById(appointment._id).populate(
       "patientId",
-      "name phone",
+      "name phone"
     );
 
     return res.status(201).json({
       message: "Appointment created successfully",
       data: formatAppointment(populatedApt),
     });
+
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Failed to create appointment", error: error.message });
+    return res.status(500).json({
+      message: "Failed to create appointment",
+      error: error.message,
+    });
   }
 };
 
