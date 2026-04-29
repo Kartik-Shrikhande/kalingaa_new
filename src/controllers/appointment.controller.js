@@ -233,21 +233,20 @@ exports.updateStatus = async (req, res) => {
 
 exports.remove = async (req, res) => {
   try {
-    // 1. Fetch AND Populate immediately
-    const appointment = await Appointment.findById(req.params.id)
-      .populate("patientId", "name phone")
-      .populate("testId", "name price")
-      .populate("packageId", "name specialPrice");
+    const appointment = await Appointment.findById(req.params.id).populate(
+      "patientId",
+      "name phone",
+    );
+    // ✅ Removed: .populate("testId", ...) and .populate("packageId", ...)
+    // Appointment now uses items[] array — no direct testId/packageId refs
 
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found" });
     }
 
-    // 2. Update status
     appointment.status = "Cancelled";
     await appointment.save();
 
-    // 3. Now formatAppointment will have the correct data
     return res.status(200).json({
       message: "Appointment cancelled successfully",
       data: formatAppointment(appointment),
@@ -258,7 +257,6 @@ exports.remove = async (req, res) => {
       .json({ message: "Failed to cancel", error: error.message });
   }
 };
-
 
 //APPOINTMENT -  PATIENT ROLE APIS
 
